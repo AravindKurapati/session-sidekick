@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"Add a function to compute fibonacci"},"timestamp":"2026-05-04T10:00:00Z","sessionId":"sess-completed","cwd":"/proj/foo"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Here's a fib function..."}],"usage":{"input_tokens":100,"output_tokens":50}},"timestamp":"2026-05-04T10:00:05Z","sessionId":"sess-completed"}
+{"type":"user","message":{"role":"user","content":"Thanks, that works"},"timestamp":"2026-05-04T10:00:30Z","sessionId":"sess-completed"}

@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"Fix this bug"},"timestamp":"2026-05-04T11:00:00Z","sessionId":"sess-abandoned","cwd":"/proj/foo"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Trying X..."}],"usage":{"input_tokens":50,"output_tokens":30}},"timestamp":"2026-05-04T11:00:05Z","sessionId":"sess-abandoned"}
+{"type":"user","message":{"role":"user","content":"no"},"timestamp":"2026-05-04T11:00:10Z","sessionId":"sess-abandoned"}
+{"type":"user","message":{"role":"user","content":"stop"},"timestamp":"2026-05-04T11:00:15Z","sessionId":"sess-abandoned"}
+{"type":"user","message":{"role":"user","content":"forget it"},"timestamp":"2026-05-04T11:00:20Z","sessionId":"sess-abandoned"}
