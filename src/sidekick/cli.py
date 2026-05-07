@@ -104,7 +104,6 @@ def show(session_id: str, full: bool) -> None:
             click.echo(f"[{tidx}] {role}: {text[:300]}")
 
 from sidekick import hooks as hooksmod
-from sidekick import titler as titlermod
 
 @main.command(name="install-hooks")
 @click.option("--apply", is_flag=True, help="Patch ~/.claude/settings.json. Otherwise prints snippet.")
@@ -115,15 +114,6 @@ def install_hooks(apply: bool) -> None:
 
 @main.command(name="stop-hook")
 def stop_hook() -> None:
-    """Run by Claude Code Stop event: incremental index + queue titling."""
+    """Run by Claude Code Stop event: incremental index + embed."""
     indexer.run()
     indexer.embed_pending(batch_size=64)
-    conn = db.connect()
-    pending = [r[0] for r in conn.execute(
-        "SELECT id FROM sessions WHERE titled_at IS NULL ORDER BY ended_at DESC LIMIT 5"
-    ).fetchall()]
-    for sid in pending:
-        try:
-            titlermod.title_session(sid)
-        except Exception:
-            pass
