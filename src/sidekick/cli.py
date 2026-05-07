@@ -2,6 +2,7 @@
 from __future__ import annotations
 import click
 from sidekick import db, indexer
+from sidekick import search as searchmod
 from sidekick.paths import db_path
 
 @click.group()
@@ -48,3 +49,50 @@ def list_sessions(project: str | None, status: str | None, limit: int) -> None:
     args.append(limit)
     for sid, proj, title, st, ended in conn.execute(sql, args):
         click.echo(f"{sid:<36}  {proj:<30}  {st or 'unknown':<12}  {title or '(untitled)'}")
+
+@main.command()
+@click.argument("query")
+@click.option("--project", default=None)
+@click.option("--limit", default=10, type=int)
+@click.option("--mode", type=click.Choice(["fts", "semantic", "combined"]), default="combined")
+def search(query: str, project: str | None, limit: int, mode: str) -> None:
+    """Search across all indexed sessions."""
+    if mode == "fts":
+        hits = searchmod.fts(query, limit=limit, project=project)
+    elif mode == "semantic":
+        hits = searchmod.semantic(query, limit=limit, project=project)
+    else:
+        hits = searchmod.combined(query, limit=limit, project=project)
+    if not hits:
+        click.echo("(no hits)")
+        return
+    for h in hits:
+        score = h.get("score", 0.0)
+        click.echo(f"{h['session_id']:<36}  turn {h['turn_idx']:>3}  score={score:.3f}  {h['project']:<25}  {h['snippet'][:120]}")
+
+@main.command()
+@click.argument("session_id")
+@click.option("--full", is_flag=True, help="Print every turn's text.")
+def show(session_id: str, full: bool) -> None:
+    """Show a session by id (partial id supported)."""
+    conn = db.connect()
+    row = conn.execute(
+        "SELECT id, project, title, summary, tags, status, ended_at FROM sessions WHERE id LIKE ?",
+        (f"{session_id}%",),
+    ).fetchone()
+    if not row:
+        click.echo(f"no session matching {session_id!r}")
+        return
+    click.echo(f"id:      {row[0]}")
+    click.echo(f"project: {row[1]}")
+    click.echo(f"title:   {row[2] or '(untitled)'}")
+    click.echo(f"summary: {row[3] or '-'}")
+    click.echo(f"tags:    {row[4] or '-'}")
+    click.echo(f"status:  {row[5]}")
+    click.echo(f"ended:   {row[6]}")
+    if full:
+        click.echo("---")
+        for tidx, role, text in conn.execute(
+            "SELECT turn_idx, role, text FROM turns WHERE session_id=? ORDER BY turn_idx", (row[0],)
+        ):
+            click.echo(f"[{tidx}] {role}: {text[:300]}")
