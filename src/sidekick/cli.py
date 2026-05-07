@@ -102,3 +102,28 @@ def show(session_id: str, full: bool) -> None:
             "SELECT turn_idx, role, text FROM turns WHERE session_id=? ORDER BY turn_idx", (row[0],)
         ):
             click.echo(f"[{tidx}] {role}: {text[:300]}")
+
+from sidekick import hooks as hooksmod
+from sidekick import titler as titlermod
+
+@main.command(name="install-hooks")
+@click.option("--apply", is_flag=True, help="Patch ~/.claude/settings.json. Otherwise prints snippet.")
+def install_hooks(apply: bool) -> None:
+    """Print or install the Claude Code hook config."""
+    out = hooksmod.install(apply=apply)
+    click.echo(out)
+
+@main.command(name="stop-hook")
+def stop_hook() -> None:
+    """Run by Claude Code Stop event: incremental index + queue titling."""
+    indexer.run()
+    indexer.embed_pending(batch_size=64)
+    conn = db.connect()
+    pending = [r[0] for r in conn.execute(
+        "SELECT id FROM sessions WHERE titled_at IS NULL ORDER BY ended_at DESC LIMIT 5"
+    ).fetchall()]
+    for sid in pending:
+        try:
+            titlermod.title_session(sid)
+        except Exception:
+            pass
