@@ -33,3 +33,18 @@ def test_search_command_prints_session_id(tmp_home):
     r = runner.invoke(main, ["search", "fibonacci"])
     assert r.exit_code == 0
     assert "sess-completed" in r.output
+
+def test_semantic_finds_similar(tmp_home):
+    _seed_all()
+    indexer.run()
+    indexer.embed_pending(batch_size=8)
+    hits = search.semantic("recursive math function", limit=5)
+    assert any(h["session_id"] == "sess-completed" for h in hits)
+
+def test_combined_returns_both_modes(tmp_home):
+    _seed_all()
+    indexer.run()
+    indexer.embed_pending()
+    hits = search.combined("fibonacci recursive", limit=10)
+    assert len(hits) >= 1
+    assert all("score" in h and "mode" in h for h in hits)

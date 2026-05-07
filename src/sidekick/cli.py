@@ -51,6 +51,12 @@ def list_sessions(project: str | None, status: str | None, limit: int) -> None:
         click.echo(f"{sid:<36}  {proj:<30}  {st or 'unknown':<12}  {title or '(untitled)'}")
 
 @main.command()
+def embed() -> None:
+    """Embed any turns that don't yet have an embedding."""
+    n = indexer.embed_pending()
+    click.echo(f"embedded {n} turn(s)")
+
+@main.command()
 @click.argument("query")
 @click.option("--project", default=None)
 @click.option("--limit", default=10, type=int)

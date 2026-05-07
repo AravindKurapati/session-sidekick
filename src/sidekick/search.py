@@ -25,14 +25,61 @@ def fts(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
         for r in conn.execute(sql, args).fetchall()
     ]
 
+import numpy as np
+from sidekick.embeddings import Embedder, from_blob
+
+_embedder: Embedder | None = None
+
+def _embedder_singleton() -> Embedder:
+    global _embedder
+    if _embedder is None:
+        _embedder = Embedder()
+    return _embedder
+
 def semantic(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
-    """Cosine similarity over stored embeddings. Implemented in Task 8."""
-    return []
+    """Cosine similarity over stored embeddings."""
+    conn = db.connect()
+    sql = """
+        SELECT e.session_id, e.turn_idx, e.vec, t.text, t.role, s.project, s.title
+        FROM embeddings e
+        JOIN turns t ON t.session_id=e.session_id AND t.turn_idx=e.turn_idx
+        JOIN sessions s ON s.id=e.session_id
+    """
+    args: list = []
+    if project:
+        sql += " WHERE s.project LIKE ?"
+        args.append(f"%{project}%")
+    rows = conn.execute(sql, args).fetchall()
+    if not rows:
+        return []
+    qv = _embedder_singleton().embed_one(query)
+    scored = []
+    for sid, tidx, blob, text, role, proj, title in rows:
+        v = from_blob(blob)
+        score = float(np.dot(qv, v))
+        scored.append({
+            "session_id": sid, "turn_idx": tidx, "role": role,
+            "project": proj, "title": title,
+            "snippet": text[:200], "score": score,
+        })
+    scored.sort(key=lambda h: h["score"], reverse=True)
+    return scored[:limit]
 
 def combined(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
-    """RRF fusion of FTS and semantic. Falls back to FTS only until Task 8."""
-    fts_hits = fts(query, limit=limit, project=project)
-    for h in fts_hits:
-        h.setdefault("score", 0.0)
-        h.setdefault("mode", "fts")
-    return fts_hits
+    """RRF fusion of FTS and semantic."""
+    fts_hits = fts(query, limit=limit * 2, project=project)
+    sem_hits = semantic(query, limit=limit * 2, project=project)
+    k = 60.0
+    rrf: dict[tuple[str, int], dict] = {}
+    for rank, h in enumerate(fts_hits, start=1):
+        key = (h["session_id"], h["turn_idx"])
+        rrf.setdefault(key, {**h, "score": 0.0, "mode": "fts"})
+        rrf[key]["score"] += 1.0 / (k + rank)
+    for rank, h in enumerate(sem_hits, start=1):
+        key = (h["session_id"], h["turn_idx"])
+        rrf.setdefault(key, {**h, "score": 0.0, "mode": "semantic"})
+        rrf[key]["score"] += 1.0 / (k + rank)
+        if rrf[key].get("mode") != "semantic":
+            rrf[key]["mode"] = "hybrid"
+    out = sorted(rrf.values(), key=lambda h: h["score"], reverse=True)
+    return out[:limit]

@@ -61,6 +61,34 @@ def _save_offset(conn, file_path: Path, mtime: float, offset: int) -> None:
         (str(file_path), mtime, offset, dt.datetime.utcnow().isoformat()),
     )
 
+def embed_pending(batch_size: int = 64) -> int:
+    """Embed turns that have no embedding yet. Returns count embedded."""
+    from sidekick.embeddings import Embedder, to_blob
+    conn = db.connect()
+    rows = conn.execute(
+        """
+        SELECT t.session_id, t.turn_idx, t.text
+        FROM turns t
+        LEFT JOIN embeddings e
+          ON e.session_id=t.session_id AND e.turn_idx=t.turn_idx
+        WHERE e.session_id IS NULL AND t.text != ''
+        """
+    ).fetchall()
+    if not rows:
+        return 0
+    embedder = Embedder()
+    total = 0
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i : i + batch_size]
+        vecs = embedder.embed_many([r[2] for r in batch])
+        conn.executemany(
+            "INSERT OR REPLACE INTO embeddings (session_id, turn_idx, vec) VALUES (?, ?, ?)",
+            [(r[0], r[1], to_blob(v)) for r, v in zip(batch, vecs)],
+        )
+        total += len(batch)
+    conn.close()
+    return total
+
 def run(only_session: str | None = None) -> int:
     """Index all new bytes; return number of new turns inserted."""
     root = claude_projects_dir()
