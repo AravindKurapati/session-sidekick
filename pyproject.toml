@@ -1,17 +1,30 @@
 [project]
 name = "session-sidekick"
 version = "0.1.0"
-description = "Auto-title Claude Code sessions and inject per-prompt semantic matches"
+description = "Search your Claude Code sessions and get semantic recall hints as you type"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+  {name = "Aravind Kurapati"},
+]
+keywords = ["claude", "claude-code", "anthropic", "sessions", "search", "semantic", "recall", "cli", "hooks"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Utilities",
+]
 dependencies = [
   "click>=8.1",
-  "anthropic>=0.40",
   "fastembed>=0.4",
-  "sqlite-vec>=0.1.6",
   "platformdirs>=4.2",
 ]
 
 [project.optional-dependencies]
+titler = ["anthropic>=0.40"]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6"]
 
 [project.scripts]
@@ -20,9 +33,16 @@ sidekick-daemon = "sidekick.daemon:main"
 sidekick-recall = "sidekick.recall:main"
 sidekick-titler = "sidekick.titler:main"
 
+[project.urls]
+Homepage = "https://github.com/AravindKurapati/session-sidekick"
+Issues   = "https://github.com/AravindKurapati/session-sidekick/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sidekick"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
