@@ -1,4 +1,3 @@
-import sqlite3
 from sidekick import db
 
 def test_connect_creates_schema(tmp_home):

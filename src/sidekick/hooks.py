@@ -1,16 +1,18 @@
 """Build + install Claude Code hook config in ~/.claude/settings.json."""
 from __future__ import annotations
 import json
+import sys
 from pathlib import Path
 from sidekick.paths import home
 
 def build_hook_config() -> dict:
+    py = sys.executable
     return {
         "Stop": [
             {
                 "matcher": "*",
                 "hooks": [
-                    {"type": "command", "command": "sidekick stop-hook", "timeout": 5}
+                    {"type": "command", "command": f'"{py}" -m sidekick stop-hook', "timeout": 5}
                 ],
             }
         ],
@@ -18,7 +20,7 @@ def build_hook_config() -> dict:
             {
                 "matcher": "*",
                 "hooks": [
-                    {"type": "command", "command": "sidekick-recall", "timeout": 1}
+                    {"type": "command", "command": f'"{py}" -m sidekick.recall', "timeout": 1}
                 ],
             }
         ],

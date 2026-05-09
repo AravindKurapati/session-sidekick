@@ -39,8 +39,11 @@ def _flatten_content(content) -> str:
         return "\n".join(parts)
     return ""
 
+_MESSAGE_ROLES = {"user", "assistant"}
+
+
 def parse_session_file(path: Path) -> Iterator[Turn]:
-    """Yield Turn for each well-formed line. Skip malformed lines silently."""
+    """Yield Turn for each well-formed message line. Skip metadata events silently."""
     if not path.exists():
         return
     turn_idx = 0
@@ -59,7 +62,10 @@ def parse_session_file(path: Path) -> Iterator[Turn]:
             if not session_id:
                 continue
             msg = obj.get("message") or {}
-            role = msg.get("role") or obj.get("type", "")
+            role = msg.get("role", "")
+            # Skip metadata events (last-prompt, permission-mode, attachment, etc.)
+            if role not in _MESSAGE_ROLES:
+                continue
             text = _flatten_content(msg.get("content", ""))
             usage = msg.get("usage") or {}
             yield Turn(

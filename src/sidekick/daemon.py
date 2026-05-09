@@ -9,7 +9,7 @@ from sidekick import db, search
 from sidekick.embeddings import Embedder
 from sidekick.paths import sidekick_dir
 
-CONFIDENCE_THRESHOLD = 0.78
+CONFIDENCE_THRESHOLD = 0.60
 
 def _socket_address():
     if sys.platform == "win32":
@@ -45,6 +45,8 @@ class Server:
             self._address = path
         self._sock.listen(8)
         self._sock.settimeout(0.5)
+        # Pre-warm embedder so the first recall request doesn't miss the 300ms budget.
+        self._embedder = Embedder()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -126,3 +128,6 @@ def main() -> None:
         srv._thread.join()
     except KeyboardInterrupt:
         srv.stop()
+
+if __name__ == "__main__":
+    main()
