@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from sidekick import indexer
 from sidekick.paths import home
 
 def build_hook_config() -> dict:
@@ -60,3 +61,15 @@ def install(apply: bool = False) -> str:
     merged = merge_into(existing, cfg)
     sp.write_text(json.dumps(merged, indent=2))
     return f"wrote {sp}"
+
+def stop_hook() -> tuple[int, int, int]:
+    """Run after Claude Code stops: index from AFR when available, then embed."""
+    source_db = indexer.afr_db_path()
+    if source_db.exists():
+        new, skipped = indexer.reindex_from_afr(db_path=source_db)
+    else:
+        new = indexer.run()
+        skipped = 0
+    embedded = indexer.embed_pending()
+    print(f"sidekick: {new} sessions indexed, {skipped} skipped")
+    return new, skipped, embedded

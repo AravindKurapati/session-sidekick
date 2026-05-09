@@ -48,3 +48,12 @@ def test_combined_returns_both_modes(tmp_home):
     hits = search.combined("fibonacci recursive", limit=10)
     assert len(hits) >= 1
     assert all("score" in h and "mode" in h for h in hits)
+
+def test_shipped_sessions_rank_higher():
+    results = search._apply_outcome_boost([
+        {"session_id": "blocked", "status": "blocked", "score": 0.9},
+        {"session_id": "shipped", "status": "shipped", "score": 0.8},
+    ])
+
+    assert results[0]["session_id"] == "shipped"
+    assert results[0]["score"] == 1.04
