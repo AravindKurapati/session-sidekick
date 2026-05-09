@@ -141,3 +141,40 @@ def install_hooks(apply: bool) -> None:
 def stop_hook() -> None:
     """Run by Claude Code Stop event: index and embed new turns."""
     hooksmod.stop_hook()
+
+
+@main.command()
+def info() -> None:
+    """Show version, DB location, index counts, and command reference."""
+    from importlib.metadata import version as pkg_version, PackageNotFoundError
+    try:
+        v = pkg_version("session-sidekick")
+    except PackageNotFoundError:
+        v = "dev"
+
+    path = db_path()
+    conn = db.connect()
+    sessions = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    turns = conn.execute("SELECT COUNT(*) FROM turns").fetchone()[0]
+    embeddings = conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+    titled = conn.execute("SELECT COUNT(*) FROM sessions WHERE titled_at IS NOT NULL").fetchone()[0]
+    conn.close()
+
+    size_kb = path.stat().st_size // 1024 if path.exists() else 0
+    click.echo(f"session-sidekick  v{v}")
+    click.echo(f"DB: {path}  ({size_kb} KB)")
+    click.echo(f"Sessions: {sessions} (titled: {titled})  |  Turns: {turns}  |  Embeddings: {embeddings}")
+    click.echo("")
+    click.echo("Commands:")
+    cmds = [
+        ("sidekick reindex",              "Index new turns from ~/.claude/projects/"),
+        ("sidekick reindex-from-afr",     "Import sessions from AFR DB"),
+        ("sidekick embed",                "Embed any turns missing embeddings"),
+        ("sidekick search <query>",       "Search sessions (fts/semantic/combined)"),
+        ("sidekick list [--project] [--status] [--limit]", "List sessions"),
+        ("sidekick show <id>",            "Show session detail (--full for all turns)"),
+        ("sidekick stats",                "DB stats summary"),
+        ("sidekick install-hooks [--apply]", "Print or install Claude Code hook config"),
+    ]
+    for cmd, desc in cmds:
+        click.echo(f"  {cmd:<45}  {desc}")
