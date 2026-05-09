@@ -6,6 +6,8 @@ import numpy as np
 from sidekick import db
 from sidekick.embeddings import Embedder, from_blob
 
+SHIPPED_BOOST = 1.3
+
 
 def fts(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
     """FTS5 keyword search. Returns ranked hits with snippet."""
@@ -39,11 +41,19 @@ def _embedder_singleton() -> Embedder:
         _embedder = Embedder()
     return _embedder
 
+def _apply_outcome_boost(results: list[dict]) -> list[dict]:
+    """Boost shipped sessions in semantic recall ranking."""
+    for result in results:
+        if result.get("status") == "shipped":
+            result["score"] *= SHIPPED_BOOST
+    return sorted(results, key=lambda h: h["score"], reverse=True)
+
 def semantic(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
     """Cosine similarity over stored embeddings."""
     conn = db.connect()
     sql = """
-        SELECT e.session_id, e.turn_idx, e.vec, t.text, t.role, s.project, s.title
+        SELECT e.session_id, e.turn_idx, e.vec, t.text, t.role,
+               s.project, s.title, s.status
         FROM embeddings e
         JOIN turns t ON t.session_id=e.session_id AND t.turn_idx=e.turn_idx
         JOIN sessions s ON s.id=e.session_id
@@ -57,16 +67,15 @@ def semantic(query: str, limit: int = 20, project: str | None = None) -> list[di
         return []
     qv = _embedder_singleton().embed_one(query)
     scored = []
-    for sid, tidx, blob, text, role, proj, title in rows:
+    for sid, tidx, blob, text, role, proj, title, status in rows:
         v = from_blob(blob)
         score = float(np.dot(qv, v))
         scored.append({
             "session_id": sid, "turn_idx": tidx, "role": role,
-            "project": proj, "title": title,
+            "project": proj, "title": title, "status": status,
             "snippet": text[:200], "score": score,
         })
-    scored.sort(key=lambda h: h["score"], reverse=True)
-    return scored[:limit]
+    return _apply_outcome_boost(scored)[:limit]
 
 def combined(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
     """RRF fusion of FTS and semantic."""

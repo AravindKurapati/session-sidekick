@@ -1,11 +1,16 @@
 """Incremental indexer. Walks ~/.claude/projects, parses new JSONL bytes, inserts."""
 from __future__ import annotations
 import datetime as dt
+import sqlite3
 from pathlib import Path
 
 from sidekick import db
 from sidekick.parser import parse_session_file, Turn
-from sidekick.paths import claude_projects_dir
+from sidekick.paths import claude_projects_dir, home
+
+
+def afr_db_path() -> Path:
+    return home() / ".afr" / "afr.db"
 
 
 def _project_name(path: Path) -> str:
@@ -95,6 +100,93 @@ def embed_pending(batch_size: int = 64) -> int:
         total += len(batch)
     conn.close()
     return total
+
+def _insert_afr_turn(
+    conn,
+    session_id: str,
+    turn_idx: int,
+    role: str,
+    text: str,
+    timestamp: str | None,
+) -> None:
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO turns
+            (session_id, turn_idx, role, text, timestamp)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (session_id, turn_idx, role, text, timestamp),
+    )
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO turns_fts (rowid, text, session_id, turn_idx, role)
+        SELECT rowid, text, session_id, turn_idx, role FROM turns
+        WHERE session_id=? AND turn_idx=?
+        """,
+        (session_id, turn_idx),
+    )
+
+def reindex_from_afr(db_path: Path | None = None) -> tuple[int, int]:
+    """Import sessions from AFR's structured DB instead of parsing JSONL."""
+    source_db = db_path or afr_db_path()
+    if not source_db.exists():
+        raise FileNotFoundError(
+            f"AFR database not found at {source_db}. Run: afr ingest claude"
+        )
+
+    afr = sqlite3.connect(source_db)
+    afr.row_factory = sqlite3.Row
+    conn = db.connect()
+    new = skipped = 0
+    try:
+        for row in afr.execute("SELECT * FROM runs ORDER BY started_at DESC"):
+            run_id = row["id"]
+            if conn.execute(
+                "SELECT 1 FROM sessions WHERE id = ?", (run_id,)
+            ).fetchone():
+                skipped += 1
+                continue
+
+            conn.execute(
+                """
+                INSERT INTO sessions
+                    (id, project, cwd, started_at, ended_at, title, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    row["project_path"],
+                    row["project_path"],
+                    row["started_at"],
+                    row["ended_at"],
+                    row["user_goal"] or "",
+                    row["outcome"] or "untagged",
+                ),
+            )
+
+            if row["user_goal"]:
+                _insert_afr_turn(
+                    conn,
+                    run_id,
+                    0,
+                    "user",
+                    row["user_goal"],
+                    row["started_at"],
+                )
+            if row["final_summary"]:
+                _insert_afr_turn(
+                    conn,
+                    run_id,
+                    1,
+                    "assistant",
+                    row["final_summary"],
+                    row["ended_at"],
+                )
+            new += 1
+    finally:
+        afr.close()
+        conn.close()
+    return new, skipped
 
 def run(only_session: str | None = None) -> int:
     """Index all new bytes; return number of new turns inserted."""

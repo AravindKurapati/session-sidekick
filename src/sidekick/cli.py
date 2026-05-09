@@ -26,6 +26,16 @@ def reindex() -> None:
     click.echo(f"indexed {n} new turn(s)")
 
 
+@main.command(name="reindex-from-afr")
+def reindex_from_afr() -> None:
+    """Import sessions from AFR's ~/.afr/afr.db."""
+    try:
+        new, skipped = indexer.reindex_from_afr()
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"Done. {new} new, {skipped} skipped.")
+
+
 @main.command()
 def stats() -> None:
     """Print database stats."""
@@ -129,5 +139,5 @@ def install_hooks(apply: bool) -> None:
 
 @main.command(name="stop-hook")
 def stop_hook() -> None:
-    """Run by Claude Code Stop event: incremental index only (no embedding)."""
-    indexer.run()
+    """Run by Claude Code Stop event: index and embed new turns."""
+    hooksmod.stop_hook()

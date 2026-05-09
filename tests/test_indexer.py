@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from sidekick import db, indexer
 from sidekick.paths import claude_projects_dir
+from fixtures.make_afr_fixture import make_afr_db
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -50,3 +51,56 @@ def test_index_populates_fts(tmp_home):
     ).fetchall()
     assert len(rows) == 1
     assert rows[0][0] == "sess-completed"
+
+def test_reindex_from_afr_imports_goals(tmp_home, tmp_path):
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+
+    new, skipped = indexer.reindex_from_afr(db_path=afr_db)
+
+    assert new == 2
+    assert skipped == 0
+    conn = db.connect()
+    sessions = conn.execute(
+        "SELECT id, project, title, status FROM sessions ORDER BY started_at"
+    ).fetchall()
+    assert len(sessions) == 2
+    assert sessions[0] == (
+        "abc12345-0000-0000-0000-000000000000",
+        "/projects/foo",
+        "fix the modal deployment error",
+        "shipped",
+    )
+
+    turns = conn.execute(
+        """
+        SELECT session_id, turn_idx, role, text
+        FROM turns
+        WHERE session_id='abc12345-0000-0000-0000-000000000000'
+        ORDER BY turn_idx
+        """
+    ).fetchall()
+    assert turns == [
+        (
+            "abc12345-0000-0000-0000-000000000000",
+            0,
+            "user",
+            "fix the modal deployment error",
+        ),
+        (
+            "abc12345-0000-0000-0000-000000000000",
+            1,
+            "assistant",
+            "Fixed by adding huggingface-secret",
+        ),
+    ]
+
+def test_reindex_from_afr_is_idempotent(tmp_home, tmp_path):
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+
+    indexer.reindex_from_afr(db_path=afr_db)
+    new, skipped = indexer.reindex_from_afr(db_path=afr_db)
+
+    assert new == 0
+    assert skipped == 2
