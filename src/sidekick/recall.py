@@ -1,9 +1,14 @@
 """Recall client. Invoked by the UserPromptSubmit hook. Always returns 0."""
 from __future__ import annotations
+import io
 import json
 import socket
 import sys
 from sidekick.paths import sidekick_dir
+
+# Windows cp1252 can't encode emojis in the hint; force UTF-8.
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 def _daemon_address():
     if sys.platform == "win32":
@@ -64,6 +69,16 @@ def run(prompt: str, project: str | None = None, timeout_ms: int = 300) -> int:
     return 0
 
 def main() -> None:
-    """Entry: `sidekick-recall`. Reads the prompt from stdin."""
-    prompt = sys.stdin.read()
-    sys.exit(run(prompt))
+    """Entry: `sidekick-recall`. Reads JSON or raw text from stdin."""
+    raw = sys.stdin.read()
+    project: str | None = None
+    try:
+        payload = json.loads(raw)
+        prompt = payload.get("prompt", "")
+        project = payload.get("cwd")  # use cwd as a project hint if available
+    except (json.JSONDecodeError, AttributeError):
+        prompt = raw
+    sys.exit(run(prompt, project=project))
+
+if __name__ == "__main__":
+    main()

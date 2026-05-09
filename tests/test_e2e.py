@@ -5,7 +5,7 @@ import socket
 import time
 from pathlib import Path
 from sidekick import daemon, indexer
-from sidekick.paths import claude_projects_dir, sidekick_dir
+from sidekick.paths import claude_projects_dir
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

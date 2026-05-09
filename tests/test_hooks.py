@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from click.testing import CliRunner
 from sidekick.cli import main
 from sidekick import hooks

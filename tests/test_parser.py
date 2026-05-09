@@ -1,5 +1,5 @@
 from pathlib import Path
-from sidekick.parser import parse_session_file, Turn
+from sidekick.parser import parse_session_file
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

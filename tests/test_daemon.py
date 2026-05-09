@@ -1,7 +1,6 @@
 import json
 import shutil
 import socket
-import threading
 import time
 from pathlib import Path
 from sidekick import daemon, indexer

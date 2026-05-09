@@ -1,19 +1,30 @@
 """Click CLI: composition root."""
 from __future__ import annotations
+import io
+import sys
+
 import click
-from sidekick import db, indexer
+
+from sidekick import db, hooks as hooksmod, indexer
 from sidekick import search as searchmod
 from sidekick.paths import db_path
+
+# Windows consoles default to cp1252; force UTF-8 so snippet output doesn't crash.
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
 
 @click.group()
 def main() -> None:
     """session-sidekick: search & recall your Claude Code sessions."""
+
 
 @main.command()
 def reindex() -> None:
     """Incrementally index ~/.claude/projects/*.jsonl."""
     n = indexer.run()
     click.echo(f"indexed {n} new turn(s)")
+
 
 @main.command()
 def stats() -> None:
@@ -29,6 +40,7 @@ def stats() -> None:
     click.echo(f"sessions: {s} (titled: {titled})")
     click.echo(f"turns: {t}")
     click.echo(f"embeddings: {e}")
+
 
 @main.command(name="list")
 @click.option("--project", default=None, help="Filter by project name (substring).")
@@ -50,11 +62,13 @@ def list_sessions(project: str | None, status: str | None, limit: int) -> None:
     for sid, proj, title, st, ended in conn.execute(sql, args):
         click.echo(f"{sid:<36}  {proj:<30}  {st or 'unknown':<12}  {title or '(untitled)'}")
 
+
 @main.command()
 def embed() -> None:
     """Embed any turns that don't yet have an embedding."""
     n = indexer.embed_pending()
     click.echo(f"embedded {n} turn(s)")
+
 
 @main.command()
 @click.argument("query")
@@ -75,6 +89,7 @@ def search(query: str, project: str | None, limit: int, mode: str) -> None:
     for h in hits:
         score = h.get("score", 0.0)
         click.echo(f"{h['session_id']:<36}  turn {h['turn_idx']:>3}  score={score:.3f}  {h['project']:<25}  {h['snippet'][:120]}")
+
 
 @main.command()
 @click.argument("session_id")
@@ -103,7 +118,6 @@ def show(session_id: str, full: bool) -> None:
         ):
             click.echo(f"[{tidx}] {role}: {text[:300]}")
 
-from sidekick import hooks as hooksmod
 
 @main.command(name="install-hooks")
 @click.option("--apply", is_flag=True, help="Patch ~/.claude/settings.json. Otherwise prints snippet.")
@@ -112,8 +126,8 @@ def install_hooks(apply: bool) -> None:
     out = hooksmod.install(apply=apply)
     click.echo(out)
 
+
 @main.command(name="stop-hook")
 def stop_hook() -> None:
-    """Run by Claude Code Stop event: incremental index + embed."""
+    """Run by Claude Code Stop event: incremental index only (no embedding)."""
     indexer.run()
-    indexer.embed_pending(batch_size=64)

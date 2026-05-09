@@ -2,12 +2,19 @@
 from __future__ import annotations
 import datetime as dt
 from pathlib import Path
+
 from sidekick import db
 from sidekick.parser import parse_session_file, Turn
 from sidekick.paths import claude_projects_dir
 
+
 def _project_name(path: Path) -> str:
-    return path.parent.name
+    """Return the top-level project dir name, even for subagent paths."""
+    root = claude_projects_dir()
+    try:
+        return path.relative_to(root).parts[0]
+    except (ValueError, IndexError):
+        return path.parent.name
 
 def _upsert_session(conn, turn: Turn, project: str) -> None:
     conn.execute(

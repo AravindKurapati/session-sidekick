@@ -1,6 +1,11 @@
 """Search functions. FTS5 first; semantic added in Task 8."""
 from __future__ import annotations
+
+import numpy as np
+
 from sidekick import db
+from sidekick.embeddings import Embedder, from_blob
+
 
 def fts(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
     """FTS5 keyword search. Returns ranked hits with snippet."""
@@ -25,8 +30,6 @@ def fts(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
         for r in conn.execute(sql, args).fetchall()
     ]
 
-import numpy as np
-from sidekick.embeddings import Embedder, from_blob
 
 _embedder: Embedder | None = None
 
