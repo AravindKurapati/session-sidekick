@@ -1,10 +1,12 @@
 """Build + install Claude Code hook config in ~/.claude/settings.json."""
 from __future__ import annotations
 import json
+import socket
+import subprocess
 import sys
 from pathlib import Path
 from sidekick import indexer
-from sidekick.paths import home
+from sidekick.paths import home, sidekick_dir
 
 def build_hook_config() -> dict:
     py = sys.executable
@@ -62,6 +64,39 @@ def install(apply: bool = False) -> str:
     sp.write_text(json.dumps(merged, indent=2))
     return f"wrote {sp}"
 
+def _daemon_alive() -> bool:
+    """Return True if the daemon is reachable."""
+    port_file = sidekick_dir() / "daemon.port"
+    sock_file = sidekick_dir() / "daemon.sock"
+    try:
+        if sys.platform == "win32":
+            if not port_file.exists():
+                return False
+            port = int(port_file.read_text().strip())
+            s = socket.create_connection(("127.0.0.1", port), timeout=0.5)
+            s.close()
+        else:
+            if not sock_file.exists():
+                return False
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            s.connect(str(sock_file))
+            s.close()
+        return True
+    except OSError:
+        return False
+
+
+def _start_daemon() -> None:
+    """Launch sidekick-daemon in the background, detached from this process."""
+    subprocess.Popen(
+        [sys.executable, "-m", "sidekick.daemon"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 def stop_hook() -> tuple[int, int, int]:
     """Run after Claude Code stops: index from AFR when available, then embed."""
     source_db = indexer.afr_db_path()
@@ -71,5 +106,7 @@ def stop_hook() -> tuple[int, int, int]:
         new = indexer.run()
         skipped = 0
     embedded = indexer.embed_pending()
+    if not _daemon_alive():
+        _start_daemon()
     print(f"sidekick: {new} sessions indexed, {skipped} skipped")
     return new, skipped, embedded
