@@ -2,7 +2,7 @@
 
 > **Stop re-explaining context you've already worked through.**
 
-A local CLI + Claude Code hook that indexes all your past sessions and surfaces relevant ones as you type — before you accidentally redo work you've already done.
+A local CLI + Claude Code hook that indexes all your past sessions and surfaces relevant ones as you type - before you accidentally redo work you've already done.
 
 ---
 
@@ -17,9 +17,9 @@ You either:
 
 Session-sidekick fixes this with two pieces:
 
-1. **A recall hook** — fires on every prompt via `UserPromptSubmit`. Runs semantic search against all your past sessions. If it finds a confident match, it prints a one-line hint before Claude sees your message: `💡 You did this before — session abc12345: add modal vllm endpoint`
+1. **A recall hook** - fires on every prompt via `UserPromptSubmit`. Runs semantic search against all your past sessions. If it finds a confident match, it prints a one-line hint before Claude sees your message: ` You did this before - session abc12345: add modal vllm endpoint`
 
-2. **A search CLI** — keyword + semantic + combined search across every session you've ever had. `sidekick search "modal deployment"` ranks results by relevance, not just recency.
+2. **A search CLI** - keyword + semantic + combined search across every session you've ever had. `sidekick search "modal deployment"` ranks results by relevance, not just recency.
 
 Everything is local. No API keys. No data leaves your machine.
 
@@ -38,7 +38,7 @@ cd session-sidekick
 pip install -e .
 ```
 
-**Requirements:** Python 3.11+ — no API keys needed.
+**Requirements:** Python 3.11+ - no API keys needed.
 
 ---
 
@@ -63,9 +63,22 @@ sidekick show abc12345 --full
 
 ---
 
+## Demo
+
+**Browse recent sessions across all your projects**
+![sidekick list --limit 8](<Screenshot 2026-05-12 092108.png>)
+
+**Semantic search — finds relevant past work by meaning, not just keywords**
+![sidekick search "bulk insert timeout"](<Screenshot 2026-05-12 092130.png>)
+
+**Drill into any session for full context; `stats` shows your indexed corpus**
+![sidekick show + sidekick stats](<Screenshot 2026-05-12 092147.png>)
+
+---
+
 ## Live recall hook (the main feature)
 
-The recall hook injects a past-session hint into your terminal at the moment you submit a prompt to Claude Code — giving you context before Claude even sees your message.
+The recall hook injects a past-session hint into your terminal at the moment you submit a prompt to Claude Code - giving you context before Claude even sees your message.
 
 **Setup:**
 
@@ -89,7 +102,7 @@ sidekick-daemon &>/dev/null &
 ```
 You: fix the vllm timeout on modal
 
-💡 You may have done this before — session a3f2b1c8 (2026-04-28): debug modal vllm timeout
+ You may have done this before - session a3f2b1c8 (2026-04-28): debug modal vllm timeout
    Set request_timeout=120 in the Modal endpoint config, not in the vLLM args.
    Tags: modal,vllm,timeout
    Resume with: claude --resume a3f2b1c8
@@ -97,7 +110,7 @@ You: fix the vllm timeout on modal
 Claude: ...
 ```
 
-The hint only appears when the confidence score exceeds the threshold (default 0.78). Silent otherwise — it never interrupts you.
+The hint only appears when the confidence score exceeds the threshold (default 0.78). Silent otherwise - it never interrupts you.
 
 ---
 
@@ -112,7 +125,7 @@ The hint only appears when the confidence score exceeds the threshold (default 0
 | `search` | Keyword + semantic search (`--mode fts\|semantic\|combined`) |
 | `show` | Full session detail by id (`--full` for all turns) |
 | `install-hooks` | Print or apply hook config (`--apply` to patch settings.json) |
-| `stop-hook` | Run by Claude Code Stop event — reindex + embed |
+| `stop-hook` | Run by Claude Code Stop event - reindex + embed |
 
 ---
 
@@ -130,17 +143,17 @@ The hint only appears when the confidence score exceeds the threshold (default 0
    Cosine similarity → hint printed if score > 0.78
 ```
 
-- **Index:** `~/.session-sidekick/index.db` — SQLite with FTS5 full-text and raw float32 embeddings
+- **Index:** `~/.session-sidekick/index.db` - SQLite with FTS5 full-text and raw float32 embeddings
 - **Model:** `sentence-transformers/all-MiniLM-L6-v2` via fastembed (ONNX, ~80MB, downloads once)
 - **Search:** FTS5 keyword, cosine similarity semantic, or RRF-fused combined
-- **Recall budget:** 300ms timeout — silent if daemon is slow or down, never blocks Claude Code
+- **Recall budget:** 300ms timeout - silent if daemon is slow or down, never blocks Claude Code
 
 ---
 
 ## Data & privacy
 
 - All data stays local at `~/.session-sidekick/`
-- Only reads `~/.claude/projects/` — never writes to it
+- Only reads `~/.claude/projects/` - never writes to it
 - No network calls (the optional titler uses Anthropic's API but is disabled by default)
 - The daemon runs on localhost only
 
