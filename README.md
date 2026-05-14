@@ -172,6 +172,39 @@ Calls Claude Haiku (~$0.0005 per session). Titles are stored locally and shown i
 
 ---
 
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | Python 3.11+ |
+| CLI framework | Click |
+| Embeddings | fastembed (all-MiniLM-L6-v2, ONNX, local) |
+| Storage | SQLite with FTS5 + WAL mode |
+| IPC | Unix domain socket (Linux/macOS) / TCP (Windows) |
+| Build | Hatchling |
+| Tests | pytest (41 tests — CLI, daemon, search, embeddings, hooks, parser, recall, e2e) |
+
+---
+
+## Running Tests
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+---
+
+## Limitations
+
+- **Claude Code only** - indexes `~/.claude/projects/` JSONL files; does not support Cursor, Copilot, or other agent session formats.
+- **Embedding model is fixed** - uses `all-MiniLM-L6-v2` (384d); no option to swap in a larger model for higher recall.
+- **Daemon must be running** - the recall hook requires the sidekick-daemon process to be active; no serverless fallback.
+- **First-run embedding is slow** - building embeddings for a large session corpus takes 1-2 minutes (ONNX, CPU-only).
+- **No cross-machine sync** - index and embeddings are local; no cloud sync or team sharing.
+
+---
+
 ## License
 
 MIT
