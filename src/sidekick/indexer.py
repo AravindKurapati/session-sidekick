@@ -88,7 +88,10 @@ def embed_pending(batch_size: int = 64) -> int:
     ).fetchall()
     if not rows:
         return 0
-    embedder = Embedder()
+    try:
+        embedder = Embedder()
+    except Exception:
+        return 0
     total = 0
     for i in range(0, len(rows), batch_size):
         batch = rows[i : i + batch_size]

@@ -2,12 +2,18 @@
 from __future__ import annotations
 import numpy as np
 from fastembed import TextEmbedding
+from sidekick.paths import sidekick_dir
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+def _model_cache_dir() -> str:
+    p = sidekick_dir() / "model_cache"
+    p.mkdir(parents=True, exist_ok=True)
+    return str(p)
+
 class Embedder:
     def __init__(self) -> None:
-        self._model = TextEmbedding(model_name=MODEL_NAME)
+        self._model = TextEmbedding(model_name=MODEL_NAME, cache_dir=_model_cache_dir())
         self.dim = 384
 
     def embed_one(self, text: str) -> np.ndarray:
