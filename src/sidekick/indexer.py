@@ -144,9 +144,27 @@ def reindex_from_afr(db_path: Path | None = None) -> tuple[int, int]:
     try:
         for row in afr.execute("SELECT * FROM runs ORDER BY started_at DESC"):
             run_id = row["id"]
-            if conn.execute(
-                "SELECT 1 FROM sessions WHERE id = ?", (run_id,)
-            ).fetchone():
+            existing = conn.execute(
+                "SELECT title FROM sessions WHERE id = ?", (run_id,)
+            ).fetchone()
+            if existing:
+                # Update title/status/summary from AFR even if row already exists
+                if row["user_goal"] or row["outcome"] or row["final_summary"]:
+                    conn.execute(
+                        """
+                        UPDATE sessions SET
+                            title   = COALESCE(NULLIF(?, ''), title),
+                            status  = COALESCE(NULLIF(?, ''), status),
+                            summary = COALESCE(NULLIF(?, ''), summary)
+                        WHERE id = ?
+                        """,
+                        (
+                            row["user_goal"] or None,
+                            row["outcome"] or None,
+                            row["final_summary"] or None,
+                            run_id,
+                        ),
+                    )
                 skipped += 1
                 continue
 

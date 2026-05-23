@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from sidekick import db, indexer
 from sidekick.paths import claude_projects_dir
-from fixtures.make_afr_fixture import make_afr_db
+from .fixtures.make_afr_fixture import make_afr_db
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
