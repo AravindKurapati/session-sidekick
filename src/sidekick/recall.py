@@ -68,6 +68,11 @@ def run(prompt: str, project: str | None = None, timeout_ms: int = 300) -> int:
         sock.close()
     return 0
 
+def _cwd_to_project(cwd: str) -> str:
+    """Convert a filesystem path to Claude Code's project slug format."""
+    import re
+    return re.sub(r"[/\\:]", "-", cwd).strip("-")
+
 def main() -> None:
     """Entry: `sidekick-recall`. Reads JSON or raw text from stdin."""
     raw = sys.stdin.read()
@@ -75,7 +80,8 @@ def main() -> None:
     try:
         payload = json.loads(raw)
         prompt = payload.get("prompt", "")
-        project = payload.get("cwd")  # use cwd as a project hint if available
+        cwd = payload.get("cwd")
+        project = _cwd_to_project(cwd) if cwd else None
     except (json.JSONDecodeError, AttributeError):
         prompt = raw
     sys.exit(run(prompt, project=project))
