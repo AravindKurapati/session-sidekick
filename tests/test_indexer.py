@@ -93,7 +93,48 @@ def test_reindex_from_afr_imports_goals(tmp_home, tmp_path):
             "assistant",
             "Fixed by adding huggingface-secret",
         ),
+        (
+            "abc12345-0000-0000-0000-000000000000",
+            2,
+            "user",
+            "merged as PR #42 after fixing the secret",
+        ),
     ]
+
+def test_reindex_from_afr_skips_empty_tag_note(tmp_home, tmp_path):
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+
+    indexer.reindex_from_afr(db_path=afr_db)
+    conn = db.connect()
+    # The "def67890" row has empty tag_note — should produce only turn 0 (no final_summary, no note).
+    turns = conn.execute(
+        "SELECT turn_idx FROM turns WHERE session_id='def67890-0000-0000-0000-000000000000' ORDER BY turn_idx"
+    ).fetchall()
+    assert [t[0] for t in turns] == [0]
+
+
+def test_reindex_from_afr_tolerates_missing_tag_note_column(tmp_home, tmp_path):
+    """Older AFR DBs (pre-migration) lack the tag_note column. Indexer must not crash."""
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db, with_tag_note=False)
+
+    new, skipped = indexer.reindex_from_afr(db_path=afr_db)
+    assert new == 2
+    assert skipped == 0
+
+
+def test_reindex_from_afr_tag_note_is_searchable(tmp_home, tmp_path):
+    """The whole point — tag_note text must land in turns_fts so recall can match it."""
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+    indexer.reindex_from_afr(db_path=afr_db)
+    conn = db.connect()
+    hits = conn.execute(
+        "SELECT session_id FROM turns_fts WHERE turns_fts MATCH ?", ("merged",)
+    ).fetchall()
+    assert any(h[0] == "abc12345-0000-0000-0000-000000000000" for h in hits)
+
 
 def test_reindex_from_afr_is_idempotent(tmp_home, tmp_path):
     afr_db = tmp_path / "afr.db"
