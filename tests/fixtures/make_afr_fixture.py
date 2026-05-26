@@ -2,10 +2,17 @@ import sqlite3
 from pathlib import Path
 
 
-def make_afr_db(path: Path) -> None:
+def make_afr_db(path: Path, with_tag_note: bool = True) -> None:
+    """Build a fixture AFR DB matching the current production schema.
+
+    Set with_tag_note=False to simulate a pre-tag_note AFR install (no column).
+    """
     conn = sqlite3.connect(path)
+    tag_note_col = ",\n            tag_note TEXT DEFAULT ''" if with_tag_note else ""
+    tag_note_val_1 = ",\n            'merged as PR #42 after fixing the secret'" if with_tag_note else ""
+    tag_note_val_2 = ",\n            ''" if with_tag_note else ""
     conn.executescript(
-        """
+        f"""
         CREATE TABLE runs (
             id TEXT PRIMARY KEY,
             source TEXT,
@@ -19,7 +26,7 @@ def make_afr_db(path: Path) -> None:
             tokens_in INTEGER DEFAULT 0,
             tokens_out INTEGER DEFAULT 0,
             cache_read INTEGER DEFAULT 0,
-            cache_write INTEGER DEFAULT 0
+            cache_write INTEGER DEFAULT 0{tag_note_col}
         );
 
         INSERT INTO runs VALUES (
@@ -35,7 +42,7 @@ def make_afr_db(path: Path) -> None:
             1842,
             4201,
             920,
-            0
+            0{tag_note_val_1}
         );
 
         INSERT INTO runs VALUES (
@@ -51,7 +58,7 @@ def make_afr_db(path: Path) -> None:
             250,
             800,
             100,
-            0
+            0{tag_note_val_2}
         );
         """
     )

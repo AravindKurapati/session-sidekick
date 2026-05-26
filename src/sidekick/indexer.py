@@ -182,6 +182,20 @@ def reindex_from_afr(db_path: Path | None = None) -> tuple[int, int]:
                     row["final_summary"],
                     row["ended_at"],
                 )
+            # AFR's tag_note column was added later — tolerate older DBs.
+            try:
+                note = row["tag_note"]
+            except (IndexError, KeyError):
+                note = None
+            if note:
+                _insert_afr_turn(
+                    conn,
+                    run_id,
+                    2,
+                    "user",
+                    note,
+                    row["ended_at"],
+                )
             new += 1
     finally:
         afr.close()
