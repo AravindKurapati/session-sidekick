@@ -136,6 +136,66 @@ def test_reindex_from_afr_tag_note_is_searchable(tmp_home, tmp_path):
     assert any(h[0] == "abc12345-0000-0000-0000-000000000000" for h in hits)
 
 
+def test_reindex_from_afr_backfills_existing_titles(tmp_home, tmp_path):
+    """Sessions already indexed from JSONL (empty title/status) get refreshed from AFR."""
+    # Pre-seed sessions table as if JSONL-indexed: blank title/status/summary.
+    conn = db.connect()
+    conn.execute(
+        "INSERT INTO sessions (id, project, cwd, started_at, ended_at, title, status, summary) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("abc12345-0000-0000-0000-000000000000", "/projects/foo", "/projects/foo",
+         "2026-05-01T10:00:00", "2026-05-01T10:30:00", "", "untagged", "")
+    )
+    conn.commit()
+    conn.close()
+
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+    new, skipped = indexer.reindex_from_afr(db_path=afr_db)
+
+    # Existing row was updated (counted as skipped), new row inserted.
+    assert skipped == 1
+    assert new == 1
+
+    conn = db.connect()
+    title, status, summary = conn.execute(
+        "SELECT title, status, summary FROM sessions WHERE id = ?",
+        ("abc12345-0000-0000-0000-000000000000",)
+    ).fetchone()
+    assert title == "fix the modal deployment error"
+    assert status == "shipped"
+    assert summary == "Fixed by adding huggingface-secret"
+
+
+def test_reindex_from_afr_backfill_preserves_existing_when_afr_blank(tmp_home, tmp_path):
+    """If AFR has empty fields, existing sidekick values are preserved."""
+    conn = db.connect()
+    conn.execute(
+        "INSERT INTO sessions (id, project, cwd, started_at, ended_at, title, status, summary) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("def67890-0000-0000-0000-000000000000", "/projects/foo", "/projects/foo",
+         "2026-05-02T11:00:00", "2026-05-02T11:10:00",
+         "manually titled", "blocked", "manual summary")
+    )
+    conn.commit()
+    conn.close()
+
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+    indexer.reindex_from_afr(db_path=afr_db)
+
+    conn = db.connect()
+    title, status, summary = conn.execute(
+        "SELECT title, status, summary FROM sessions WHERE id = ?",
+        ("def67890-0000-0000-0000-000000000000",)
+    ).fetchone()
+    # AFR's def67890 has user_goal="debug auth...", outcome="blocked", final_summary="".
+    # Title gets updated (AFR has it), status replaced (AFR's is also "blocked"), summary preserved (AFR empty).
+    assert title == "debug authentication middleware"  # AFR overwrote
+    assert status == "blocked"
+    assert summary == "manual summary"  # preserved — AFR's final_summary was empty
+
+
 def test_reindex_from_afr_is_idempotent(tmp_home, tmp_path):
     afr_db = tmp_path / "afr.db"
     make_afr_db(afr_db)

@@ -144,9 +144,30 @@ def reindex_from_afr(db_path: Path | None = None) -> tuple[int, int]:
     try:
         for row in afr.execute("SELECT * FROM runs ORDER BY started_at DESC"):
             run_id = row["id"]
-            if conn.execute(
+            existing = conn.execute(
                 "SELECT 1 FROM sessions WHERE id = ?", (run_id,)
-            ).fetchone():
+            ).fetchone()
+            if existing:
+                # Refresh title/status/summary from AFR — sessions originally
+                # indexed from JSONL may have empty titles that AFR now provides.
+                # COALESCE/NULLIF keeps existing values when AFR's column is empty.
+                if row["user_goal"] or row["outcome"] or row["final_summary"]:
+                    conn.execute(
+                        """
+                        UPDATE sessions SET
+                            title   = COALESCE(NULLIF(?, ''), title),
+                            status  = COALESCE(NULLIF(?, ''), status),
+                            summary = COALESCE(NULLIF(?, ''), summary)
+                        WHERE id = ?
+                        """,
+                        (
+                            row["user_goal"] or None,
+                            row["outcome"] or None,
+                            row["final_summary"] or None,
+                            run_id,
+                        ),
+                    )
+                    conn.commit()
                 skipped += 1
                 continue
 
