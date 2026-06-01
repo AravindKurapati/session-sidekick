@@ -176,6 +176,7 @@ def reindex_from_afr(db_path: Path | None = None) -> tuple[int, int]:
                 INSERT INTO sessions
                     (id, project, cwd, started_at, ended_at, title, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO NOTHING
                 """,
                 (
                     run_id,

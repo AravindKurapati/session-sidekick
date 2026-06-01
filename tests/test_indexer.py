@@ -205,3 +205,55 @@ def test_reindex_from_afr_is_idempotent(tmp_home, tmp_path):
 
     assert new == 0
     assert skipped == 2
+
+
+def test_reindex_from_afr_survives_concurrent_insert(tmp_home, tmp_path, monkeypatch):
+    """Regression: concurrent Stop hooks ("Ran 2 stop hooks") both pass the
+    existence check, then the second INSERT collides on sessions.id.
+
+    Reproduces the TOCTOU window deterministically: the session rows are already
+    present (the racing peer committed them), but the existence-check SELECT is
+    forced to miss, so reindex reaches the INSERT path with the rows present.
+    The insert must be idempotent and not raise sqlite3.IntegrityError.
+    """
+    afr_db = tmp_path / "afr.db"
+    make_afr_db(afr_db)
+
+    # Racing peer already committed both AFR session ids.
+    seed = db.connect()
+    seed.execute(
+        "INSERT INTO sessions (id, project, status) VALUES (?,?,?)",
+        ("abc12345-0000-0000-0000-000000000000", "/projects/foo", "shipped"),
+    )
+    seed.execute(
+        "INSERT INTO sessions (id, project, status) VALUES (?,?,?)",
+        ("def67890-0000-0000-0000-000000000000", "/projects/foo", "blocked"),
+    )
+    seed.close()
+
+    real_connect = db.connect
+
+    class RacyConn:
+        """Proxy that hides existing sessions from the existence-check SELECT,
+        simulating the gap between a concurrent peer's check and its commit."""
+
+        def __init__(self, real):
+            self._real = real
+
+        def execute(self, sql, params=()):
+            if sql.strip().startswith("SELECT 1 FROM sessions WHERE id"):
+                return self._real.execute("SELECT 1 WHERE 0")
+            return self._real.execute(sql, params)
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    monkeypatch.setattr(db, "connect", lambda: RacyConn(real_connect()))
+
+    # Must not raise even though both ids already exist.
+    indexer.reindex_from_afr(db_path=afr_db)
+
+    check = real_connect()
+    count = check.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    check.close()
+    assert count == 2
