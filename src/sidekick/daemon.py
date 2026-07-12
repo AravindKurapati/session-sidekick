@@ -45,7 +45,7 @@ class Server:
             self._address = path
         self._sock.listen(8)
         self._sock.settimeout(0.5)
-        # Pre-warm embedder so the first recall request doesn't miss the 300ms budget.
+        # Pre-warm embedder so the first recall request doesn't miss the client budget.
         self._embedder = Embedder()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()

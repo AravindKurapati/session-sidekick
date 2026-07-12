@@ -1,6 +1,6 @@
 [project]
 name = "session-sidekick"
-version = "0.1.1"
+version = "0.1.2"
 description = "Search your Claude Code sessions and get semantic recall hints as you type"
 readme = "README.md"
 requires-python = ">=3.11"

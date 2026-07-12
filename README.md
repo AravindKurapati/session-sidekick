@@ -146,7 +146,7 @@ The hint only appears when the confidence score exceeds the threshold (default 0
 - **Index:** `~/.session-sidekick/index.db` - SQLite with FTS5 full-text and raw float32 embeddings
 - **Model:** `sentence-transformers/all-MiniLM-L6-v2` via fastembed (ONNX, ~80MB, downloads once)
 - **Search:** FTS5 keyword, cosine similarity semantic, or RRF-fused combined
-- **Recall budget:** 300ms timeout - silent if daemon is slow or down, never blocks Claude Code
+- **Recall budget:** 800ms timeout (ceiling, not a fixed delay) - silent if daemon is slow or down, never blocks Claude Code
 
 ---
 
