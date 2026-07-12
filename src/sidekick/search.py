@@ -7,6 +7,7 @@ from sidekick import db
 from sidekick.embeddings import Embedder, from_blob
 
 SHIPPED_BOOST = 1.3
+PROJECT_BOOST = 1.15
 
 
 def fts(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
@@ -48,8 +49,25 @@ def _apply_outcome_boost(results: list[dict]) -> list[dict]:
             result["score"] *= SHIPPED_BOOST
     return sorted(results, key=lambda h: h["score"], reverse=True)
 
-def semantic(query: str, limit: int = 20, project: str | None = None) -> list[dict]:
-    """Cosine similarity over stored embeddings."""
+def _apply_project_boost(results: list[dict], boost_project: str | None) -> list[dict]:
+    """Boost hits from `boost_project` so same-project matches rank higher, without
+    ever filtering other projects out. Returns the list re-sorted by score, mirroring
+    _apply_outcome_boost."""
+    if not boost_project:
+        return results
+    for result in results:
+        if result.get("project") == boost_project:
+            result["score"] *= PROJECT_BOOST
+    return sorted(results, key=lambda h: h["score"], reverse=True)
+
+def semantic(query: str, limit: int = 20, project: str | None = None,
+             boost_project: str | None = None) -> list[dict]:
+    """Cosine similarity over stored embeddings.
+
+    `project` is a hard filter (used by the CLI's --project). `boost_project` is a
+    soft ranking boost (used by recall) that prefers same-project hits without
+    excluding others.
+    """
     conn = db.connect()
     sql = """
         SELECT e.session_id, e.turn_idx, e.vec, t.text, t.role,
@@ -75,6 +93,7 @@ def semantic(query: str, limit: int = 20, project: str | None = None) -> list[di
             "project": proj, "title": title, "status": status,
             "snippet": text[:200], "score": score,
         })
+    scored = _apply_project_boost(scored, boost_project)
     return _apply_outcome_boost(scored)[:limit]
 
 def combined(query: str, limit: int = 20, project: str | None = None) -> list[dict]:

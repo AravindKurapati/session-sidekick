@@ -6,7 +6,7 @@ import socket
 import sys
 from sidekick.paths import sidekick_dir
 
-# Windows cp1252 can't encode emojis in the hint; force UTF-8.
+# Titles/summaries may contain non-cp1252 characters; force UTF-8 stdout on Windows.
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -40,7 +40,7 @@ def _format_hit(hit: dict, prompt: str) -> str:
     sid = hit["session_id"]
     ended = hit.get("ended_at", "")
     return (
-        f"\U0001f4a1 You may have done this before — session `{sid[:8]}` ({ended[:10]}): {title}\n"
+        f"You may have done this before - session `{sid[:8]}` ({ended[:10]}): {title}\n"
         f"   {summary}\n"
         f"   Tags: {tags}\n"
         f"   Resume with: claude --resume {sid}\n"
