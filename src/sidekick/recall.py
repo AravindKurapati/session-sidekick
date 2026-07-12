@@ -46,8 +46,15 @@ def _format_hit(hit: dict, prompt: str) -> str:
         f"   Resume with: claude --resume {sid}\n"
     )
 
-def run(prompt: str, project: str | None = None, timeout_ms: int = 300) -> int:
-    """Print hint to stdout if confident match; otherwise silent. Always exits 0."""
+def run(prompt: str, project: str | None = None, timeout_ms: int = 800) -> int:
+    """Print hint to stdout if confident match; otherwise silent. Always exits 0.
+
+    The timeout is a ceiling, not a fixed delay: a fast daemon reply returns
+    immediately. The old 300ms budget was below the warm per-query embed cost
+    (~310-380ms), so real hits were silently dropped on every prompt. 800ms
+    clears warm latency with headroom while still failing fast if the daemon
+    is down or wedged.
+    """
     addr = _daemon_address()
     if not addr:
         return 0
