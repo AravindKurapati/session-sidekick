@@ -7,7 +7,7 @@ import sys
 import threading
 from sidekick import db, search
 from sidekick.embeddings import Embedder
-from sidekick.paths import sidekick_dir
+from sidekick.paths import sidekick_dir, encode_project
 
 CONFIDENCE_THRESHOLD = 0.60
 
@@ -93,7 +93,10 @@ class Server:
             return {"ok": True, "hit": None}
         if self._embedder is None:
             self._embedder = Embedder()
-        hits = search.semantic(prompt, limit=5, project=project)
+        # `project` arrives as the caller's raw cwd. Encode it to the stored
+        # project-dir form and use it as a soft boost, NOT a hard filter — a raw
+        # path never matches sessions.project, which silenced recall entirely.
+        hits = search.semantic(prompt, limit=5, boost_project=encode_project(project))
         if not hits:
             return {"ok": True, "hit": None}
         top = hits[0]

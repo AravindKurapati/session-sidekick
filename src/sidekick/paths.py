@@ -1,6 +1,22 @@
 """Centralized path resolution. All FS paths come from here."""
 from __future__ import annotations
+import re
 from pathlib import Path
+
+
+def encode_project(cwd: str | None) -> str | None:
+    """Encode a real cwd path into Claude Code's project-dir-name form.
+
+    Claude stores each session under ~/.claude/projects/<encoded-cwd>/, replacing
+    every non-alphanumeric character with a single '-' (no collapsing), e.g.
+    'D:\\Aru\\NYU\\agent-flight-recorder' -> 'D--Aru-NYU-agent-flight-recorder'.
+    The indexer stores that same string in sessions.project, so this lets the
+    recall path compare the caller's cwd against stored projects. Returns None for
+    empty input.
+    """
+    if not cwd:
+        return None
+    return re.sub(r"[^0-9A-Za-z]", "-", cwd.rstrip("/\\"))
 
 def home() -> Path:
     return Path.home()
